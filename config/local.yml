@@ -1,0 +1,26 @@
+app:
+  env: local
+  name: browser-ai-agent
+
+llm:
+  provider: zai
+  model: glm-4.7
+  max_tokens: 4096
+  temperature: 0.2
+
+browser:
+  engine: chromium
+  viewport:
+    width: 1280
+    height: 900
+  timeout_ms: 30000
+
+agent:
+  max_steps: 50
+  ask_confirmation: true
+  memory:
+    short_term_steps: 5
+    max_page_elements: 80
+
+logging:
+  level: debug
