@@ -22,46 +22,59 @@ func New(page playwright.Page) *Interpreter {
 
 // Snapshot возвращает список интерактивных элементов на странице через axe-core
 func (i *Interpreter) Snapshot() ([]Element, error) {
-	_, err := i.page.AddScriptTag(playwright.PageAddScriptTagOptions{
-		URL: playwright.String("https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.7.2/axe.min.js"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("AddScriptTag axe-core: %w", err)
-	}
-
 	handle, err := i.page.EvaluateHandle(`
 		async () => {
-			const results = await axe.run(document.body);
-			const elements = [];
-			results.violations.forEach(v => {
-				v.nodes.forEach(n => {
-					elements.push({
-						id: v.id,
-						role: n.html || '(no role)',
-						name: n.any && n.any.length > 0 ? n.any[0].relatedNodes[0]?.html || '(no label)' : '(no label)',
-						disabled: n.element?.disabled || false
-					});
-				});
+		  await new Promise(r => setTimeout(r, 100)); // даём DOM стабилизироваться
+		
+		  const elements = [];
+		  const nodes = document.querySelectorAll('a,button,input,textarea,select');
+		
+		  let idx = 0;
+		  for (const el of nodes) {
+			const rect = el.getBoundingClientRect();
+			if (rect.width === 0 || rect.height === 0) continue;
+		
+			let selector = '';
+			if (el.id) {
+			  selector = '#' + el.id;
+			} else if (el.name) {
+			  selector = el.tagName.toLowerCase() + '[name="' + el.name + '"]';
+			} else {
+			  const siblings = Array.from(el.parentNode.children)
+				.filter(e => e.tagName === el.tagName);
+			  const nth = siblings.indexOf(el) + 1;
+			  selector = el.tagName.toLowerCase() + ':nth-of-type(' + nth + ')';
+			}
+		
+			elements.push({
+			  id: 'e' + idx++,
+			  role: el.tagName.toLowerCase(),
+			  name: el.innerText || el.value || el.getAttribute('aria-label') || '(no label)',
+			  disabled: !!el.disabled,
+			  selector: selector
 			});
-			return elements.slice(0, 100);
+		  }
+		
+		  return elements;
 		}
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("EvaluateHandle axe-core JS: %w", err)
+		return nil, fmt.Errorf("EvaluateHandle snapshot: %w", err)
 	}
 
-	jsonValue, err := handle.JSONValue()
+	value, err := handle.JSONValue()
 	if err != nil {
-		return nil, fmt.Errorf("JSONValue axe-core result: %w", err)
+		return nil, fmt.Errorf("JSONValue snapshot: %w", err)
 	}
 
-	jsonBytes, err := json.Marshal(jsonValue)
+	bytes, err := json.Marshal(value)
 	if err != nil {
-		return nil, fmt.Errorf("marshal JSONValue: %w", err)
+		return nil, fmt.Errorf("marshal snapshot: %w", err)
 	}
+
 	var elements []Element
-	if err = json.Unmarshal(jsonBytes, &elements); err != nil {
-		return nil, fmt.Errorf("unmarshal to []Element: %w", err)
+	if err := json.Unmarshal(bytes, &elements); err != nil {
+		return nil, fmt.Errorf("unmarshal snapshot: %w", err)
 	}
 
 	return elements, nil

@@ -4,11 +4,11 @@ import (
 	"ai-browser-agent/internal/browser"
 	"ai-browser-agent/internal/config"
 	"ai-browser-agent/internal/interpreter"
+	"fmt"
 	"log"
 )
 
 func main() {
-	// Загружаем конфиг
 	cfg, err := config.Load("config/local.yml")
 	if err != nil {
 		log.Fatal(err)
@@ -27,13 +27,18 @@ func main() {
 
 	interp := interpreter.New(br.Page)
 
-	interp.PrintSnapshot()
-
-	_, err = interp.Snapshot()
+	elements, err := interp.Snapshot()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	select {}
+	if len(elements) == 0 {
+		log.Println("No interactive elements found")
+	} else {
+		fmt.Printf("Found %d elements\n", len(elements))
+		fmt.Println(elements[0])
+		_ = interp.Click(elements[0])
+	}
 
+	select {}
 }
