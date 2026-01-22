@@ -1,8 +1,10 @@
 package main
 
 import (
+	"ai-browser-agent/internal/agent"
 	"ai-browser-agent/internal/browser"
 	"ai-browser-agent/internal/config"
+	"ai-browser-agent/internal/executor"
 	"ai-browser-agent/internal/interpreter"
 	"fmt"
 	"log"
@@ -26,6 +28,7 @@ func main() {
 	}
 
 	interp := interpreter.New(br.Page)
+	exec := executor.New(br.Page, interp)
 
 	elements, err := interp.Snapshot()
 	if err != nil {
@@ -37,8 +40,12 @@ func main() {
 	} else {
 		fmt.Printf("Found %d elements\n", len(elements))
 		fmt.Println(elements[0])
-		_ = interp.Click(elements[0])
 	}
+
+	_ = exec.Execute(agent.Action{
+		Type:      agent.ActionClick,
+		ElementID: "e0",
+	})
 
 	select {}
 }
