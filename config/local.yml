@@ -3,17 +3,17 @@ app:
   name: browser-ai-agent
 
 llm:
-  provider: zai
-  model: glm-4.7
+  provider: mistral
+  model: mistral-large-latest
   max_tokens: 4096
-  temperature: 0.2
+  temperature: 0.05
 
 browser:
   engine: chromium
   viewport:
     width: 1280
     height: 900
-  timeout_ms: 30000
+  timeout_ms: 5000
 
 agent:
   max_steps: 50

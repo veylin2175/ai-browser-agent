@@ -35,10 +35,10 @@ type AppConfig struct {
 }
 
 type LLMConfig struct {
-	Provider    string
-	Model       string
-	MaxTokens   int
-	Temperature float32
+	Provider    string  `mapstructure:"provider"`
+	Model       string  `mapstructure:"model"`
+	MaxTokens   int     `mapstructure:"max_tokens"`
+	Temperature float32 `mapstructure:"temperature"`
 }
 
 type BrowserConfig struct {

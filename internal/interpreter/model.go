@@ -7,9 +7,10 @@ type PageState struct {
 }
 
 type Element struct {
-	ID       string `json:"id"`
+	Index    int    `json:"index"`
+	Selector string `json:"selector"`
 	Role     string `json:"role"`
 	Name     string `json:"name"`
 	Disabled bool   `json:"disabled"`
-	Selector string `json:"selector"`
+	Visible  bool   `json:"visible"`
 }
