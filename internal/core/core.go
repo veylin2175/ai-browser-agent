@@ -24,18 +24,18 @@ type Action struct {
 func (a Action) String() string {
 	switch a.Type {
 	case ActionNavigate:
-		return fmt.Sprintf("navigate to %s", a.URL)
+		return fmt.Sprintf("🌐 Перехожу на %s", a.URL)
 	case ActionClick:
-		return fmt.Sprintf("click %d", a.Target)
+		return fmt.Sprintf("🛠️ Нажимаю на %d", a.Target)
 	case ActionTypeText:
 		textSnippet := a.Text
 		if len(textSnippet) > 30 {
 			textSnippet = textSnippet[:27] + "..."
 		}
-		return fmt.Sprintf("type \"%s\" into %d", textSnippet, a.Target)
+		return fmt.Sprintf("🛠️ Ввожу \"%s\" в поле %d", textSnippet, a.Target)
 	case ActionDone:
-		return "done"
+		return "Задача выполнена! 🎉"
 	default:
-		return fmt.Sprintf("%s (unknown)", a.Type)
+		return fmt.Sprintf("Не удалось выполнить действие %s, ищу альтернативное решение.", a.Type)
 	}
 }

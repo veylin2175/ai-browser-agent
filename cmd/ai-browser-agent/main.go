@@ -8,8 +8,10 @@ import (
 	"ai-browser-agent/internal/executor"
 	"ai-browser-agent/internal/interpreter"
 	"ai-browser-agent/internal/llm"
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -37,7 +39,16 @@ func main() {
 
 	ag := agent.New(llmClient, interp)
 
-	goal := "Перейди на яндекс маркет, найди мне Айфон 17 и поставь цену от 95 000 до 100 000 рублей"
+	fmt.Println("Введите цель для агента (нажмите Enter после ввода):")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	goal := strings.TrimSpace(scanner.Text())
+
+	if goal == "" {
+		log.Fatal("Цель не введена. Завершение.")
+	}
+
+	fmt.Println("Цель получена. Агент начинает работу...")
 
 	for {
 		action, err := ag.Step(goal)
@@ -45,14 +56,14 @@ func main() {
 			log.Fatal(err)
 		}
 
-		log.Println("LLM action:", action)
+		fmt.Printf("→ %s\n", action.String())
 
 		if action.Type == core.ActionDone {
 			break
 		}
 
 		if err = exec.Execute(action); err != nil {
-			log.Println("execute error:", err)
+			fmt.Println("Ошибка при выполнении. Сейчас попробую снова:", err)
 		}
 
 		previousURL := br.Page.URL()
@@ -74,7 +85,6 @@ func main() {
 				changeHint += fmt.Sprintf("Заголовок изменился → %q\n", newTitle)
 			}
 
-			// Самое важное — видимый контент страницы
 			visibleText, errTxt := br.Page.Locator("body").InnerText()
 			if errTxt == nil {
 				visibleText = strings.ReplaceAll(visibleText, "\n", " ")
@@ -87,7 +97,6 @@ func main() {
 				}
 			}
 
-			// Специфический намёк на результаты (без хардкода селекторов)
 			if strings.Contains(newURL, "search") || strings.Contains(newURL, "yandex.ru") {
 				results, _ := br.Page.Locator("h2, .organic__url, .text-container, .serp-item").AllInnerTexts()
 				if len(results) > 0 && len(results[0]) > 10 {
@@ -111,9 +120,12 @@ func main() {
 
 		ag.History = append(ag.History, fmt.Sprintf("%s → %s", action.String(), observation))
 
-		// Обрезка истории (увеличим до 10 для лучшего контекста, как я предлагал раньше)
 		if len(ag.History) > 10 {
 			ag.History = ag.History[len(ag.History)-10:]
 		}
 	}
+
+	fmt.Println("Нажмите Enter в терминале, чтобы закрыть браузер и завершить программу...")
+	var input string
+	fmt.Scanln(&input)
 }

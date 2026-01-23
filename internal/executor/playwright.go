@@ -27,6 +27,49 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 		return err
 	}
 
+	destructiveKeywords := []string{
+		"оплатить", "купить", "заказать", "подтвердить", "удалить", "удаление", "delete", "remove", "pay", "checkout", "оформить", "buy", "submit order",
+	}
+
+	isDestructive := false
+	destructiveReason := ""
+
+	if a.Type == core.ActionClick || a.Type == core.ActionTypeText || a.Type == core.ActionPressKey {
+		if a.Target >= 0 && a.Target < len(els) {
+			el := els[a.Target]
+			nameLower := strings.ToLower(el.Name)
+			roleLower := strings.ToLower(el.Role)
+			selectorLower := strings.ToLower(el.Selector)
+
+			for _, kw := range destructiveKeywords {
+				if strings.Contains(nameLower, kw) ||
+					strings.Contains(roleLower, kw) ||
+					strings.Contains(selectorLower, kw) {
+					isDestructive = true
+					destructiveReason = fmt.Sprintf("Элемент содержит подозрительное слово: %q (name=%q, role=%q)", kw, el.Name, el.Role)
+					break
+				}
+			}
+		}
+	}
+
+	if isDestructive {
+		fmt.Printf("\n⚠️ ВНИМАНИЕ: потенциально деструктивное действие!\n")
+		fmt.Printf("Действие: %s\n", a.String())
+		fmt.Printf("Причина: %s\n", destructiveReason)
+		fmt.Print("Подтвердить выполнение? (y/n): ")
+
+		var input string
+		fmt.Scanln(&input)
+		input = strings.ToLower(strings.TrimSpace(input))
+
+		if input != "y" && input != "yes" {
+			return fmt.Errorf("действие отменено пользователем")
+		}
+
+		log.Println("Действие подтверждено пользователем")
+	}
+
 	switch a.Type {
 	case core.ActionClick:
 		if a.Target < 0 || a.Target >= len(els) {
@@ -43,12 +86,11 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 		sel := els[a.Target].Selector
 		loc := e.page.Locator(sel)
 
-		// Фокус + очистка + ввод (надёжнее, чем просто Fill)
 		if err = loc.Click(); err != nil {
 			return fmt.Errorf("не удалось сфокусироваться на элементе %d: %w", a.Target, err)
 		}
 
-		if err = loc.Fill(""); err != nil { // очистка на всякий случай
+		if err = loc.Fill(""); err != nil {
 			log.Printf("Не удалось очистить поле: %v", err)
 		}
 
@@ -56,7 +98,6 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 			return fmt.Errorf("не удалось ввести текст: %w", err)
 		}
 
-		// Проверка, похоже ли на поиск
 		isSearchField := false
 		nameLower := strings.ToLower(els[a.Target].Name)
 		roleLower := strings.ToLower(els[a.Target].Role)
@@ -75,7 +116,6 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 				return fmt.Errorf("failed to press Enter: %w", err)
 			}
 			log.Println("Enter pressed successfully")
-			// Можно добавить небольшую паузу после отправки
 			time.Sleep(800 * time.Millisecond)
 		}
 
