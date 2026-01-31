@@ -10,9 +10,11 @@ import (
 	"ai-browser-agent/internal/llm"
 	"bufio"
 	"fmt"
+	"github.com/playwright-community/playwright-go"
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -26,6 +28,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer br.Close()
+
+	br.Page.SetDefaultTimeout(10000)
 
 	_, err = br.Page.Goto("https://example.com")
 	if err != nil {
@@ -63,27 +67,24 @@ func main() {
 		}
 
 		if err = exec.Execute(action); err != nil {
-			fmt.Println("Ошибка при выполнении. Сейчас попробую снова:", err)
+			fmt.Printf("! Ошибка выполнения действия: %v\n", err)
 		}
 
-		previousURL := br.Page.URL()
-		previousTitle, _ := br.Page.Title()
+		if err == nil {
+			_ = br.Page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
+				State:   playwright.LoadStateDomcontentloaded,
+				Timeout: playwright.Float(10000),
+			})
+			time.Sleep(1200 * time.Millisecond)
+		}
 
 		var observation string
 
 		if err != nil {
-			observation = fmt.Sprintf("ОШИБКА: %v. Действие не выполнено.", err)
+			observation = fmt.Sprintf("ОШИБКА: %v", err)
 		} else {
-			newURL := br.Page.URL()
-			newTitle, _ := br.Page.Title()
-
-			changeHint := ""
-			if newURL != previousURL {
-				changeHint += fmt.Sprintf("URL изменился → %s\n", newURL)
-			}
-			if newTitle != previousTitle {
-				changeHint += fmt.Sprintf("Заголовок изменился → %q\n", newTitle)
-			}
+			currentURL := br.Page.URL()
+			currentTitle, _ := br.Page.Title()
 
 			visibleText, errTxt := br.Page.Locator("body").InnerText()
 			if errTxt == nil {
@@ -92,30 +93,14 @@ func main() {
 				if len(visibleText) > 400 {
 					visibleText = visibleText[:350] + "... (обрезано)"
 				}
-				if len(visibleText) > 80 {
-					changeHint += "Видимый текст страницы (начало): " + visibleText + "\n"
-				}
-			}
-
-			if strings.Contains(newURL, "search") || strings.Contains(newURL, "yandex.ru") {
-				results, _ := br.Page.Locator("h2, .organic__url, .text-container, .serp-item").AllInnerTexts()
-				if len(results) > 0 && len(results[0]) > 10 {
-					changeHint += "Обнаружены результаты поиска (первые заголовки): " +
-						strings.Join(results[:min(3, len(results))], " | ") + "\n"
-				}
-			}
-
-			if changeHint == "" {
-				changeHint = "Состояние страницы почти не изменилось"
+			} else {
+				visibleText = "(не удалось получить текст)"
 			}
 
 			observation = fmt.Sprintf(
-				"Действие выполнено успешно.\n%s\nТекущий URL: %s\nЗаголовок: %q",
-				changeHint, newURL, newTitle,
+				"Действие выполнено.\nURL: %s\nЗаголовок: %q\nВидимый текст (начало): %s",
+				currentURL, currentTitle, visibleText,
 			)
-
-			previousURL = newURL
-			previousTitle = newTitle
 		}
 
 		ag.History = append(ag.History, fmt.Sprintf("%s → %s", action.String(), observation))

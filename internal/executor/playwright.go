@@ -28,7 +28,8 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 	}
 
 	destructiveKeywords := []string{
-		"оплатить", "купить", "заказать", "подтвердить", "удалить", "удаление", "delete", "remove", "pay", "checkout", "оформить", "buy", "submit order",
+		"оплатить", "купить", "заказать", "подтвердить", "удалить", "удаление",
+		"delete", "remove", "pay", "checkout", "оформить", "buy", "submit order",
 	}
 
 	isDestructive := false
@@ -75,16 +76,65 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 		if a.Target < 0 || a.Target >= len(els) {
 			return fmt.Errorf("invalid target index: %d (elements: %d)", a.Target, len(els))
 		}
-		sel := els[a.Target].Selector
-		return e.page.Locator(sel).Click()
+
+		el := els[a.Target]
+		sel := el.Selector
+
+		log.Printf("Попытка клика по элементу %d: selector=%s, name=%q, role=%s, inViewport=%v",
+			a.Target, sel, el.Name, el.Role, el.InViewport)
+
+		loc := e.page.Locator(sel).First()
+
+		if err = loc.ScrollIntoViewIfNeeded(); err != nil {
+			log.Printf("Предупреждение: не удалось проскроллить к элементу: %v", err)
+		}
+
+		time.Sleep(300 * time.Millisecond)
+
+		if err = loc.WaitFor(playwright.LocatorWaitForOptions{
+			State:   playwright.WaitForSelectorStateVisible,
+			Timeout: playwright.Float(10000),
+		}); err != nil {
+			return fmt.Errorf("элемент %d (%s) не стал видимым за 10с: %w", a.Target, sel, err)
+		}
+
+		if err = loc.Click(playwright.LocatorClickOptions{
+			Timeout: playwright.Float(10000),
+			Force:   playwright.Bool(false),
+		}); err != nil {
+			log.Printf("Обычный клик не сработал, пробуем force click: %v", err)
+			if err = loc.Click(playwright.LocatorClickOptions{
+				Timeout: playwright.Float(10000),
+				Force:   playwright.Bool(true),
+			}); err != nil {
+				return fmt.Errorf("не удалось кликнуть даже с force: %w", err)
+			}
+		}
+
+		time.Sleep(500 * time.Millisecond)
+		return nil
 
 	case core.ActionTypeText:
 		if a.Target < 0 || a.Target >= len(els) {
 			return fmt.Errorf("invalid target index: %d", a.Target)
 		}
 
-		sel := els[a.Target].Selector
-		loc := e.page.Locator(sel)
+		el := els[a.Target]
+		sel := el.Selector
+		loc := e.page.Locator(sel).First()
+
+		if err = loc.ScrollIntoViewIfNeeded(); err != nil {
+			log.Printf("Предупреждение: не удалось проскроллить к полю ввода: %v", err)
+		}
+
+		time.Sleep(300 * time.Millisecond)
+
+		if err = loc.WaitFor(playwright.LocatorWaitForOptions{
+			State:   playwright.WaitForSelectorStateVisible,
+			Timeout: playwright.Float(10000),
+		}); err != nil {
+			return fmt.Errorf("поле ввода %d не стало видимым: %w", a.Target, err)
+		}
 
 		if err = loc.Click(); err != nil {
 			return fmt.Errorf("не удалось сфокусироваться на элементе %d: %w", a.Target, err)
@@ -98,27 +148,7 @@ func (e *PlaywrightExecutor) Execute(a *core.Action) error {
 			return fmt.Errorf("не удалось ввести текст: %w", err)
 		}
 
-		isSearchField := false
-		nameLower := strings.ToLower(els[a.Target].Name)
-		roleLower := strings.ToLower(els[a.Target].Role)
-
-		if strings.Contains(nameLower, "поиск") ||
-			strings.Contains(nameLower, "search") ||
-			strings.Contains(roleLower, "searchbox") ||
-			strings.Contains(roleLower, "combobox") && (strings.Contains(nameLower, "найти") || strings.Contains(nameLower, "search")) {
-			isSearchField = true
-		}
-
-		if isSearchField {
-			log.Println("Detected search-like input → pressing Enter to submit form")
-			time.Sleep(600 * time.Millisecond) // чуть больше паузы — иногда помогает
-			if err := e.page.Keyboard().Press("Enter"); err != nil {
-				return fmt.Errorf("failed to press Enter: %w", err)
-			}
-			log.Println("Enter pressed successfully")
-			time.Sleep(800 * time.Millisecond)
-		}
-
+		time.Sleep(300 * time.Millisecond)
 		return nil
 
 	case core.ActionNavigate:

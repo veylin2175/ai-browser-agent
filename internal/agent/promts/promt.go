@@ -9,8 +9,8 @@ import (
 
 func BuildSnapshotPrompt(elements []interpreter.Element) string {
 	var sb strings.Builder
-	sb.WriteString("Индекс | Селектор | Роль | Название | Disabled\n")
-	sb.WriteString("------|----------|------|----------|---------\n")
+	sb.WriteString("Индекс | Селектор | Роль | Название | Disabled | InViewport\n")
+	sb.WriteString("------|----------|------|----------|----------|------------\n")
 
 	for _, el := range elements {
 		name := strings.ReplaceAll(el.Name, "\n", " ")
@@ -19,13 +19,19 @@ func BuildSnapshotPrompt(elements []interpreter.Element) string {
 			name = name[:77] + "..."
 		}
 
+		selector := el.Selector
+		if len(selector) > 60 {
+			selector = selector[:57] + "..."
+		}
+
 		sb.WriteString(fmt.Sprintf(
-			"%d | %s | %s | %q | %v\n",
+			"%d | %s | %s | %q | %v | %v\n",
 			el.Index,
-			el.Selector,
+			selector,
 			el.Role,
 			name,
 			el.Disabled,
+			el.InViewport,
 		))
 	}
 	return sb.String()

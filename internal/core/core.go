@@ -36,6 +36,6 @@ func (a Action) String() string {
 	case ActionDone:
 		return "Задача выполнена! 🎉"
 	default:
-		return fmt.Sprintf("Не удалось выполнить действие %s, ищу альтернативное решение.", a.Type)
+		return fmt.Sprintf("%s (неизвестный тип)", a.Type)
 	}
 }
